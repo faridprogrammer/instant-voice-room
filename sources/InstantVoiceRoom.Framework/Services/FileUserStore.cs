@@ -1,0 +1,81 @@
+using System.Text.Json;
+using InstantVoiceRoom.Framework.Models;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Logging;
+
+namespace InstantVoiceRoom.Framework.Services;
+
+public class FileUserStore
+{
+  private readonly ILogger<FileUserStore> logger;
+  private readonly string _filePath;
+  private readonly IDataProtector _protector;
+  private readonly object _lock = new();
+
+  public FileUserStore(ILogger<FileUserStore> logger, IDataProtectionProvider dpProvider, string filePath)
+  {
+    _protector = dpProvider.CreateProtector("FileUserStore.v1");
+    this.logger = logger;
+    _filePath = filePath;
+    if (!File.Exists(_filePath))
+      File.WriteAllText(_filePath, "[]");
+  }
+
+  public bool AddUser(string userName, string password)
+  {
+    lock (_lock)
+    {
+      var users = LoadAll();
+      if (users.Any(u => u.UserName.Equals(userName, StringComparison.OrdinalIgnoreCase)))
+        return false;
+
+      var protectedPwd = _protector.Protect(password);
+      users.Add(new UserRecord { UserName = userName, PasswordProtected = protectedPwd });
+      SaveAll(users);
+      return true;
+    }
+  }
+
+  public bool DeleteUser(string userName)
+  {
+    lock (_lock)
+    {
+      var users = LoadAll();
+      var removed = users.RemoveAll(u => u.UserName.Equals(userName, StringComparison.OrdinalIgnoreCase));
+      if (removed == 0) return false;
+      SaveAll(users);
+      return true;
+    }
+  }
+
+  public bool ValidateCredentials(string userName, string password)
+  {
+    var users = LoadAll();
+    var record = users.FirstOrDefault(u => u.UserName.Equals(userName, StringComparison.OrdinalIgnoreCase));
+    if (record == null) return false;
+
+    try
+    {
+      var unprotected = _protector.Unprotect(record.PasswordProtected);
+      return unprotected == password;
+    }
+    catch (Exception ex)
+    {
+      logger.LogError(ex, ex.Message);
+      return false;
+    }
+  }
+
+  private List<UserRecord> LoadAll()
+  {
+    var json = File.ReadAllText(_filePath);
+    return JsonSerializer.Deserialize<List<UserRecord>>(json)
+           ?? new List<UserRecord>();
+  }
+
+  private void SaveAll(List<UserRecord> users)
+  {
+    var json = JsonSerializer.Serialize(users, new JsonSerializerOptions { WriteIndented = true });
+    File.WriteAllText(_filePath, json);
+  }
+}
