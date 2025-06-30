@@ -223,7 +223,7 @@ server {
         proxy_pass http://localhost:${KESTREL_PORT};
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection keep-alive;
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -289,9 +289,7 @@ echo ""
 echo "--- IMPORTANT NEXT STEPS ---"
 echo "1. DNS: Make sure the A record for '${DOMAIN_NAME}' points to this server's IP address."
 if [ "$NGINX_PORT" -eq 80 ]; then
-    echo "2. HTTPS: For production, you MUST enable HTTPS. Use Certbot to get a free SSL certificate:"
-    echo "   sudo apt install certbot python3-certbot-nginx"
-    echo "   sudo certbot --nginx -d ${DOMAIN_NAME}"
+    echo "2. HTTPS: For production, you MUST enable HTTPS. Use Certbot to get a free SSL certificate."
 fi
 echo ""
 echo "--- Service Management ---"

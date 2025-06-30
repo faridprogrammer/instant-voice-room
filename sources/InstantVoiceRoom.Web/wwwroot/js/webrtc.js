@@ -3,7 +3,7 @@
 let localStream;
 let peers = {};        // { connectionId: RTCPeerConnection }
 let connection;        // SignalR HubConnection
-
+window.audioElements = [];
 const leaveBtn = document.getElementById('leaveBtn');
 const nameInput = document.getElementById('nameInput');
 const statusEl  = document.getElementById('status');
@@ -46,6 +46,12 @@ async function startMeeting() {
 
   // 4) Delay, then offer to any existing peers
   setTimeout(initOffers, 500);
+
+
+  console.log("Attempting to play all audio streams after user interaction.");
+  window.audioElements.forEach(audio => {
+      audio.play().catch(error => console.error("Could not play audio:", error));
+  });
 }
 
 async function leaveMeeting() {
@@ -102,14 +108,25 @@ async function onSignal(fromId, type, data) {
     // add our mic
     localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
-    // play incoming audio
     pc.ontrack = ev => {
-      const audio = document.createElement('audio');
-      audio.srcObject = ev.streams[0];
-      audio.autoplay = true;
-      document.body.appendChild(audio);
-    };
+    console.log('on track');
 
+    if (ev.track.kind === 'audio') {
+        console.log('audio track');
+        const audio = document.createElement('audio');
+        audio.srcObject = ev.streams[0];
+        audio.autoplay = true; // Still good practice to have
+        audio.controls = true; // Useful for debugging
+        document.body.appendChild(audio);
+        window.audioElements.push(audio);
+
+        // Try to play immediately, might work depending on browser state
+        audio.play().catch(error => {
+            console.warn("Autoplay was prevented:", error);
+            // You'll need user interaction to play this audio.
+        });
+    }
+};
     // send ICE candidates to server
     pc.onicecandidate = evt => {
       if (evt.candidate) {

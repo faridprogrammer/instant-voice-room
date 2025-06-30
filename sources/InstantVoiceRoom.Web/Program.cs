@@ -2,7 +2,6 @@ using InstantVoiceRoom;
 using InstantVoiceRoom.Framework.Services;
 using InstantVoiceRoom.Web;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.DataProtection;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,17 +12,18 @@ builder.Host.UseSerilog((ctx, lc) => lc
 );
 
 builder.Services.Configure<WebRTCSettings>(builder.Configuration.GetSection("WebRTCSettings"));
-builder.Services.AddDataProtection().SetApplicationName("InstantVoiceRoom");
-builder.Services.AddSingleton<FileUserStore>((provider) =>
+
+builder.Services.AddScoped((provider) =>
 {
     var hostingEnv = provider.GetRequiredService<IWebHostEnvironment>();
     var logger = provider.GetRequiredService<ILogger<FileUserStore>>();
-    return new FileUserStore(logger, provider.GetRequiredService<IDataProtectionProvider>(), Path.Combine(hostingEnv.ContentRootPath, "file_store.dat"));
+    return new FileUserStore(logger, Path.Combine(hostingEnv.ContentRootPath, "file_store.dat"));
 });
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
        .AddCookie(options =>
        {
+           options.ExpireTimeSpan = TimeSpan.FromDays(1);
            options.LoginPath  = "/Account/Login";
            options.LogoutPath = "/Account/Login";
        });

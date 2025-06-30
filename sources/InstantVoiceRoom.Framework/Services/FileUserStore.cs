@@ -1,6 +1,5 @@
 using System.Text.Json;
 using InstantVoiceRoom.Framework.Models;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging;
 
 namespace InstantVoiceRoom.Framework.Services;
@@ -9,14 +8,13 @@ public class FileUserStore
 {
   private readonly ILogger<FileUserStore> logger;
   private readonly string _filePath;
-  private readonly IDataProtector _protector;
   private readonly object _lock = new();
 
-  public FileUserStore(ILogger<FileUserStore> logger, IDataProtectionProvider dpProvider, string filePath)
+  public FileUserStore(ILogger<FileUserStore> logger, string filePath)
   {
-    _protector = dpProvider.CreateProtector("FileUserStore.v1");
     this.logger = logger;
     _filePath = filePath;
+    logger.LogInformation($"Using db file {filePath}");
     if (!File.Exists(_filePath))
       File.WriteAllText(_filePath, "[]");
   }
@@ -29,7 +27,7 @@ public class FileUserStore
       if (users.Any(u => u.UserName.Equals(userName, StringComparison.OrdinalIgnoreCase)))
         return false;
 
-      var protectedPwd = _protector.Protect(password);
+      var protectedPwd = PasswordHasher.Hash(password);
       users.Add(new UserRecord { UserName = userName, PasswordProtected = protectedPwd });
       SaveAll(users);
       return true;
@@ -56,8 +54,7 @@ public class FileUserStore
 
     try
     {
-      var unprotected = _protector.Unprotect(record.PasswordProtected);
-      return unprotected == password;
+      return PasswordHasher.Verify(password, record.PasswordProtected);
     }
     catch (Exception ex)
     {
