@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # ==============================================================================
-# InstanVoiceRoom Installation Script for Ubuntu
+# InstantVoiceRoom Installation Script for Ubuntu
 # ==============================================================================
-# This script automates the deployment of the InstanVoiceRoom application.
+# This script automates the deployment of the InstantVoiceRoom application.
 # It performs the following steps:
 #   1. Checks for required dependencies (.NET 8 SDK, Nginx) and installs them.
 #   2. Builds and publishes the Web and CLI applications to a single directory.
@@ -136,7 +136,7 @@ print_header "Building and Publishing Applications"
 
 # Define project paths relative to the script's location.
 SCRIPT_DIR=$(dirname "$0")
-WEB_PROJ_PATH="${SCRIPT_DIR}/sources/InstantVoiceRoom.Web/InstanVoiceRoom.Web.csproj"
+WEB_PROJ_PATH="${SCRIPT_DIR}/sources/InstantVoiceRoom.Web/InstantVoiceRoom.Web.csproj"
 CLI_PROJ_PATH="${SCRIPT_DIR}/sources/InstantVoiceRoom.CLI/InstantVoiceRoom.CLI.csproj"
 
 # Verify that project files exist.
@@ -168,12 +168,12 @@ print_header "Configuring systemd service"
 
 # The name of the main web application DLL.
 # dotnet publish renames the entry point DLL to match the project name.
-WEB_DLL_NAME="InstanVoiceRoom.Web.dll"
+WEB_DLL_NAME="InstantVoiceRoom.Web.dll"
 
 # Create the service file using a heredoc for readability.
 cat <<EOF > /etc/systemd/system/${APP_NAME}.service
 [Unit]
-Description=InstanVoiceRoom Web Application
+Description=InstantVoiceRoom Web Application
 After=network.target
 
 [Service]
@@ -272,7 +272,7 @@ fi
 
 print_header "Installation Complete!"
 echo ""
-echo "The InstanVoiceRoom application has been successfully deployed."
+echo "The InstantVoiceRoom application has been successfully deployed."
 
 # Adjust the final URL based on whether the port is the standard HTTP port 80
 if [ "$NGINX_PORT" -eq 80 ]; then

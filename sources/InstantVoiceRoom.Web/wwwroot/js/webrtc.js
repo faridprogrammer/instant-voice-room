@@ -35,7 +35,8 @@ async function startMeeting() {
 
   connection.on('UsersUpdated', updateUserList);
   connection.on('ReceiveSignal', onSignal);
-
+  connection.on('UserJoined', onUserJoined);
+  connection.on('ReceiveConnectionId', onReceiveConnectionId);
   statusEl.textContent = 'Connecting to server…';
   await connection.start();
 
@@ -55,6 +56,7 @@ async function startMeeting() {
 }
 
 async function leaveMeeting() {
+  console.log(`leaveMeeting()`);
   leaveBtn.disabled = true;
   statusEl.textContent = 'Leaving…';
 
@@ -76,11 +78,13 @@ async function leaveMeeting() {
 }
 
 function resetUI() {
+  console.log(`resetUI()`);
   joinBtn.disabled = false;
   nameInput.disabled = false;
 }
 
 function updateUserList(names) {
+  console.log(`updateUserList(${names})`);
   userList.innerHTML = '';
   names.forEach(n => {
     const li = document.createElement('li');
@@ -90,6 +94,7 @@ function updateUserList(names) {
 }
 
 async function initOffers() {
+  console.log(`initOffers()`);
   for (const [id, pc] of Object.entries(peers)) {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -98,8 +103,10 @@ async function initOffers() {
 }
 
 async function onSignal(fromId, type, data) {
+  console.log(`onSignal(${fromId},${type},${data}`);
   // 1) Ensure a peer connection exists
   let pc = peers[fromId];
+  console.log(`pc = ${pc}, fromId = ${fromId}`);
   if (!pc) {
     pc = new RTCPeerConnection({
       iceServers: [{ urls: stunServer.value }]
@@ -117,6 +124,10 @@ async function onSignal(fromId, type, data) {
         audio.srcObject = ev.streams[0];
         audio.autoplay = true; // Still good practice to have
         audio.controls = true; // Useful for debugging
+        // ✅ Mute audio if it's your own track
+        if (fromId === connection.connectionId) {
+            audio.muted = true;
+        }
         document.body.appendChild(audio);
         window.audioElements.push(audio);
 
@@ -152,3 +163,42 @@ async function onSignal(fromId, type, data) {
   }
 }
 
+async function onUserJoined(newUserId) {
+    if (newUserId === connection.connectionId) return; // skip self
+
+    const pc = new RTCPeerConnection({
+        iceServers: [{ urls: stunServer.value }]
+    });
+
+    // Add local audio track
+    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+    // Send ICE candidates
+    pc.onicecandidate = evt => {
+        if (evt.candidate) {
+            connection.invoke('SendSignal', 'ice', JSON.stringify(evt.candidate));
+        }
+    };
+
+    // Handle remote audio
+    pc.ontrack = ev => {
+        const audio = document.createElement('audio');
+        audio.srcObject = ev.streams[0];
+        audio.autoplay = true;
+        audio.controls = true;
+        document.body.appendChild(audio);
+        window.audioElements.push(audio);
+    };
+
+    peers[newUserId] = pc;
+
+    // Create offer
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await connection.invoke('SendSignal', 'offer', JSON.stringify(offer));
+}
+
+
+function onReceiveConnectionId(id) {
+    connection.connectionId = id;
+}

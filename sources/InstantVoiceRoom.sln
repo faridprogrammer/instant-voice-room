@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InstanVoiceRoom.Web", "InstantVoiceRoom.Web\InstanVoiceRoom.Web.csproj", "{4134B658-43B5-4895-A8B9-A0CF284A633D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InstantVoiceRoom.Web", "InstantVoiceRoom.Web\InstantVoiceRoom.Web.csproj", "{4134B658-43B5-4895-A8B9-A0CF284A633D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InstantVoiceRoom.CLI", "InstantVoiceRoom.CLI\InstantVoiceRoom.CLI.csproj", "{0D593074-ED31-4FCF-BF56-08059C534444}"
 EndProject

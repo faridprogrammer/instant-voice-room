@@ -17,6 +17,8 @@ public class SignalHub : Hub
   {
     lock (Users) { Users.Add((Context.ConnectionId, displayName)); }
     await BroadcastUserList();
+    await BrodcastUserJoined(Context.ConnectionId);
+    await Clients.Client(Context.ConnectionId).SendAsync("ReceiveConnectionId", Context.ConnectionId);
   }
 
   public async Task Leave()
@@ -32,6 +34,16 @@ public class SignalHub : Hub
     return Clients.All.SendAsync("UsersUpdated", names);
   }
 
+  private async Task BrodcastUserJoined(string userId)
+  {
+    foreach (var user in Users.Where(u => u.ConnectionId != Context.ConnectionId))
+    {
+        await Clients.Client(user.ConnectionId).SendAsync("UserJoined", userId);
+    }
+  }
+
   public Task SendSignal(string type, string data)
     => Clients.Others.SendAsync("ReceiveSignal", Context.ConnectionId, type, data);
+
 }
+
