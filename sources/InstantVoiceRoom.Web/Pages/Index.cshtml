@@ -2,150 +2,141 @@
 @using Microsoft.AspNetCore.Authorization
 @model InstantVoiceRoom.Pages.IndexModel
 @attribute [Authorize]
+@{
+  ViewData["Title"] = "Join a meeting";
+}
 
 <style>
-  :root {
-    --primary: #0069c0;
-    --primary-light: #337ab7;
-    --bg: #f5f5f5;
-    --font: 'Segoe UI', sans-serif;
-  }
-
-  * {
-    box-sizing: border-box;
-  }
-
   body {
-    margin: 0;
-    font-family: var(--font);
-    background: var(--bg);
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
     min-height: 100vh;
+    background-color: #f0f2f5;
   }
 
   .container {
-    background: white;
+    background-color: #ffffff;
+    padding: 30px;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    width: 360px;
-    padding: 24px;
-  }
-
-  h1 {
-    margin-top: 0;
-    font-size: 1.5em;
-    text-align: center;
-    color: var(--primary);
-  }
-
-  .field {
-    margin-bottom: 16px;
-  }
-
-  .field label {
-    display: block;
-    margin-bottom: 4px;
-    font-weight: bold;
-    font-size: 0.9em;
-  }
-
-  .field input {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    max-width: 500px;
     width: 100%;
-    padding: 8px;
-    font-size: 1em;
-    border: 1px solid #ccc;
-    border-radius: 4px;
   }
 
-  .buttons {
-    text-align: center;
-    margin-bottom: 16px;
-  }
-
-  button {
-    padding: 10px 20px;
-    font-size: 1em;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-
-  button.join {
-    background: var(--primary);
-    color: white;
-  }
-
-  button.join:hover {
-    background: var(--primary-light);
-  }
-
-  button.leave {
-    background: #d9534f;
-    color: white;
-    margin-left: 8px;
-  }
-
-  button.leave:hover {
-    background: #c9302c;
-  }
-
-  #status {
-    text-align: center;
-    font-style: italic;
-    margin-bottom: 16px;
-  }
-
-  #userList {
-    list-style: none;
-    padding: 0;
-    max-height: 120px;
-    overflow-y: auto;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    margin: 0;
-  }
-
-  #userList li {
-    padding: 6px 8px;
-    border-bottom: 1px solid #eee;
-  }
-
-  #userList li:last-child {
-    border-bottom: none;
+  .form-label {
+    font-weight: bold;
   }
 </style>
+
 <div class="container">
-  <h1>Instant Voice Meet</h1>
-  <input type="hidden" id="stunServer" value="@Model.StunServer" />
-  <div class="field">
-    <label for="nameInput">Your Name</label>
-    <input id="nameInput" value="@Model.CurrentUserName" />
+  <h2 class="text-center mb-4">WebMeet</h2>
+
+  <div class="mb-3">
+    <label for="roomNameInput" class="form-label">Meeting Room Name:</label>
+    <input type="text" class="form-control" id="roomNameInput" placeholder="Enter unique room name">
   </div>
 
-  <div class="buttons">
-    <button class="leave" id="leaveBtn" disabled>Leave</button>
+  <div class="d-grid gap-2 mb-4">
+    <button class="btn btn-primary" id="createRoomBtn">Create Meeting Room</button>
   </div>
 
-  <div id="status">Not connected</div>
+  <hr>
 
-  <h3>Participants</h3>
-  <ul id="userList"></ul>
+  <h3 class="text-center mb-3">Join Existing Meeting</h3>
+
+  <div class="mb-3">
+    <label for="joinRoomNameInput" class="form-label">Room Name:</label>
+    <input type="text" class="form-control" id="joinRoomNameInput" placeholder="Enter room name to join">
+  </div>
+
+  <div class="mb-3">
+    <label for="userNameInput" class="form-label">Your Name:</label>
+    <input type="text" class="form-control" id="userNameInput" placeholder="Enter your name">
+  </div>
+
+  <div class="d-grid gap-2">
+    <button class="btn btn-success" id="joinRoomBtn">Join Meeting</button>
+  </div>
+
+  <div id="statusMessage" class="mt-3 text-center" style="display: none;"></div>
 </div>
 
-@section Scripts {
-
-<script src="~/lib/signalr/signalr.min.js"></script>
-<script src="~/js/webrtc.js" asp-append-version="true" ></script>
-
-
 <script>
-  $(document).ready(async () => {
+  const roomNameInput = document.getElementById('roomNameInput');
+  const createRoomBtn = document.getElementById('createRoomBtn');
+  const joinRoomNameInput = document.getElementById('joinRoomNameInput');
+  const userNameInput = document.getElementById('userNameInput');
+  const joinRoomBtn = document.getElementById('joinRoomBtn');
+  const statusMessageDiv = document.getElementById('statusMessage');
 
-    await startMeeting();
+  const signalRHubUrl = '/instantVoiceRoomHub';
+  const connection = new signalR.HubConnectionBuilder()
+    .withUrl(signalRHubUrl)
+    .build();
 
-  });  
+  connection.on("RoomCreationStatus", (success, message) => {
+    showStatus(message, success ? 'alert-success' : 'alert-danger');
+    if (success) {
+      // Optionally redirect or clear input
+      roomNameInput.value = '';
+    }
+  });
+
+  connection.on("JoinRoomStatus", (success, connectionId, existingParticipants) => {
+    if (success) {
+      showStatus("Successfully joined!", 'alert-success');
+      const roomName = joinRoomNameInput.value.trim();
+      const userName = userNameInput.value.trim();
+      // Redirect to the meeting room page with parameters
+      window.location.href = `meeting?room=${encodeURIComponent(roomName)}&name=${encodeURIComponent(userName)}`;
+    } else {
+      showStatus(connectionId, 'alert-danger'); // connectionId holds the error message here
+    }
+  });
+
+  async function startSignalRConnection() {
+    try {
+      await connection.start();
+      console.log("SignalR Connected.");
+    } catch (err) {
+      console.error("SignalR Connection Error: ", err);
+      setTimeout(startSignalRConnection, 5000); // Retry connection
+    }
+  }
+
+  connection.onclose(async () => {
+    console.log("SignalR Disconnected. Reconnecting...");
+    await startSignalRConnection();
+  });
+
+  createRoomBtn.addEventListener('click', async () => {
+    const roomName = roomNameInput.value.trim();
+    if (roomName) {
+      await connection.invoke("CreateRoom", roomName);
+    } else {
+      showStatus("Please enter a room name.", 'alert-warning');
+    }
+  });
+
+  joinRoomBtn.addEventListener('click', async () => {
+    const roomName = joinRoomNameInput.value.trim();
+    const userName = userNameInput.value.trim();
+    if (roomName && userName) {
+      await connection.invoke("JoinRoom", roomName, userName);
+    } else {
+      showStatus("Please enter both room name and your name.", 'alert-warning');
+    }
+  });
+
+  function showStatus(message, type) {
+    statusMessageDiv.textContent = message;
+    statusMessageDiv.className = `mt-3 text-center alert ${type}`;
+    statusMessageDiv.style.display = 'block';
+    setTimeout(() => {
+      statusMessageDiv.style.display = 'none';
+    }, 5000); // Hide after 5 seconds
+  }
+
+  startSignalRConnection();
 </script>
-}
-

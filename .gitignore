@@ -53,3 +53,6 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 sources/.vscode
+tutorials/1/node_modules
+tutorials/2/node_modules
+tutorials/3/node_modules
