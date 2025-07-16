@@ -1,7 +1,8 @@
-﻿using InstantVoiceRoom.Framework;
+﻿using InstantVoiceRoom.Framework.Data;
 using InstantVoiceRoom.Framework.Services;
 using McMaster.Extensions.CommandLineUtils;
-using Microsoft.AspNetCore.DataProtection;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -15,7 +16,18 @@ namespace InstantVoiceRoom.CLI
 
         static async Task<int> Main(string[] args)
         {
-            
+
+            if (!IsInWebApplicationPath())
+            {
+                Console.WriteLine("CLI should be in web application path");
+                return 1;
+            }
+
+            var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false)
+            .Build();
+
             var serviceCollection = new ServiceCollection();
 
             serviceCollection.AddLogging(builder =>
@@ -24,11 +36,11 @@ namespace InstantVoiceRoom.CLI
                 builder.SetMinimumLevel(LogLevel.Information);
             });
 
-            serviceCollection.AddScoped(sp =>
-            {
-                var logger = sp.GetRequiredService<ILogger<FileUserStore>>();
-                return new FileUserStore(logger, GetCurrentDirectoryFileStorePath());
-            });
+            serviceCollection.AddDbContext<ApplicationDbContext>(options =>
+                options.UseSqlite(configuration.GetConnectionString("DefaultConnection"), b => b.MigrationsAssembly("InstantVoiceRoom.Web")));
+
+
+            serviceCollection.AddScoped<IUserService, UserService>();
 
             // Build the service provider once all services are registered.
             _services = serviceCollection.BuildServiceProvider();
@@ -45,11 +57,10 @@ namespace InstantVoiceRoom.CLI
                 var userArg = cmd.Argument("username", "Username").IsRequired();
                 var passArg = cmd.Argument("password", "Password").IsRequired();
 
-                cmd.OnExecute(() =>
+                cmd.OnExecuteAsync(async (CancellationToken c) =>
                 {
-                    var logger = _services.GetRequiredService<ILogger<FileUserStore>>();
-                    var store = new FileUserStore(logger, GetCurrentDirectoryFileStorePath());
-                    if (store.AddUser(userArg.Value, passArg.Value))
+                    var service = _services.GetRequiredService<IUserService>();
+                    if (await service.AddUser(userArg.Value, passArg.Value))
                     {
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine($"User '{userArg.Value}' added.");
@@ -70,11 +81,10 @@ namespace InstantVoiceRoom.CLI
                 cmd.Description = "Delete an existing user";
                 var userArg = cmd.Argument("username", "Username").IsRequired();
 
-                cmd.OnExecute(() =>
+                cmd.OnExecuteAsync(async (CancellationToken c) =>
                 {
-                    var logger = _services.GetRequiredService<ILogger<FileUserStore>>();
-                    var store = new FileUserStore(logger, GetCurrentDirectoryFileStorePath());
-                    if (store.DeleteUser(userArg.Value))
+                    var service = _services.GetRequiredService<IUserService>(); ;
+                    if (await service.DeleteUser(userArg.Value))
                     {
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine($"User '{userArg.Value}' deleted.");
@@ -109,11 +119,15 @@ namespace InstantVoiceRoom.CLI
             }
         }
 
-        private static string GetCurrentDirectoryFileStorePath()
+        private static string GetCurrentDirectory()
         {
-            const string dbName = "file_store.dat";
-            var currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            return Path.Combine(currentDirectory, dbName);
+            return AppDomain.CurrentDomain.BaseDirectory;
+        }
+
+        private static bool IsInWebApplicationPath()
+        {
+            var foundWebDlls = Directory.GetFiles(GetCurrentDirectory()).Any(dd => dd == "InstantVoiceRoom.Web");
+            return foundWebDlls;
         }
     }
 }
